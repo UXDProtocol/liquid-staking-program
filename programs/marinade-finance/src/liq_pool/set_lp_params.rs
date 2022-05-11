@@ -1,9 +1,9 @@
 use crate::{error::CommonError, Fee, SetLpParams};
-use anchor_lang::prelude::ProgramResult;
+use anchor_lang::prelude::*;
 use anchor_lang::solana_program::native_token::sol_to_lamports;
 
 impl<'info> SetLpParams<'info> {
-    fn check_fees(&self, min_fee: Fee, max_fee: Fee) -> ProgramResult {
+    fn check_fees(&self, min_fee: Fee, max_fee: Fee) -> Result<()> {
         min_fee.check()?;
         max_fee.check()?;
         //hard-limit, max liquid unstake-fee of 10%
@@ -16,7 +16,7 @@ impl<'info> SetLpParams<'info> {
         Ok(())
     }
 
-    fn check_liquidity_target(&self, liquidity_target: u64) -> ProgramResult {
+    fn check_liquidity_target(&self, liquidity_target: u64) -> Result<()> {
         if liquidity_target < sol_to_lamports(50.0) {
             Err(CommonError::LiquidityTargetTooLow.into())
         } else {
@@ -24,7 +24,7 @@ impl<'info> SetLpParams<'info> {
         }
     }
 
-    pub fn process(&mut self, min_fee: Fee, max_fee: Fee, liquidity_target: u64) -> ProgramResult {
+    pub fn process(&mut self, min_fee: Fee, max_fee: Fee, liquidity_target: u64) -> Result<()> {
         self.state.check_admin_authority(self.admin_authority.key)?;
         self.check_fees(min_fee, max_fee)?;
         self.check_liquidity_target(liquidity_target)?;

@@ -58,11 +58,11 @@ impl LiqPool {
         Pubkey::create_with_seed(state, Self::MSOL_LEG_SEED, &spl_token::ID).unwrap()
     }
 
-    pub fn check_lp_mint(&mut self, lp_mint: &Pubkey) -> ProgramResult {
+    pub fn check_lp_mint(&mut self, lp_mint: &Pubkey) -> Result<()> {
         check_address(lp_mint, &self.lp_mint, "lp_mint")
     }
 
-    pub fn check_liq_pool_msol_leg(&self, liq_pool_msol_leg: &Pubkey) -> ProgramResult {
+    pub fn check_liq_pool_msol_leg(&self, liq_pool_msol_leg: &Pubkey) -> Result<()> {
         check_address(liq_pool_msol_leg, &self.msol_leg, "liq_pool_msol_leg")
     }
 
@@ -100,7 +100,7 @@ impl LiqPool {
         &self,
         transfering_lamports: u64,
         sol_leg_balance: u64,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let result_amount = sol_leg_balance
             .checked_add(transfering_lamports)
             .ok_or_else(|| {
@@ -113,7 +113,7 @@ impl LiqPool {
                 result_amount,
                 self.liquidity_sol_cap
             );
-            return Err(ProgramError::Custom(3782));
+            return Err(ProgramError::Custom(3782).into());
         }
         Ok(())
     }
@@ -129,12 +129,12 @@ pub trait LiqPoolHelpers {
     fn with_liq_pool_msol_leg_authority_seeds<R, F: FnOnce(&[&[u8]]) -> R>(&self, f: F) -> R;
     fn liq_pool_msol_leg_authority(&self) -> Pubkey;
 
-    fn check_lp_mint_authority(&self, lp_mint_authority: &Pubkey) -> ProgramResult;
-    fn check_liq_pool_sol_leg_pda(&self, liq_pool_sol_leg_pda: &Pubkey) -> ProgramResult;
+    fn check_lp_mint_authority(&self, lp_mint_authority: &Pubkey) -> Result<()>;
+    fn check_liq_pool_sol_leg_pda(&self, liq_pool_sol_leg_pda: &Pubkey) -> Result<()>;
     fn check_liq_pool_msol_leg_authority(
         &self,
         liq_pool_msol_leg_authority: &Pubkey,
-    ) -> ProgramResult;
+    ) -> Result<()>;
 }
 
 impl<T> LiqPoolHelpers for T
@@ -184,7 +184,7 @@ where
         })
     }
 
-    fn check_lp_mint_authority(&self, lp_mint_authority: &Pubkey) -> ProgramResult {
+    fn check_lp_mint_authority(&self, lp_mint_authority: &Pubkey) -> Result<()> {
         check_address(
             lp_mint_authority,
             &self.lp_mint_authority(),
@@ -192,7 +192,7 @@ where
         )
     }
 
-    fn check_liq_pool_sol_leg_pda(&self, liq_pool_sol_leg_pda: &Pubkey) -> ProgramResult {
+    fn check_liq_pool_sol_leg_pda(&self, liq_pool_sol_leg_pda: &Pubkey) -> Result<()> {
         check_address(
             liq_pool_sol_leg_pda,
             &self.liq_pool_sol_leg_address(),
@@ -203,7 +203,7 @@ where
     fn check_liq_pool_msol_leg_authority(
         &self,
         liq_pool_msol_leg_authority: &Pubkey,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         check_address(
             liq_pool_msol_leg_authority,
             &self.liq_pool_msol_leg_authority(),

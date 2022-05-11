@@ -2,7 +2,7 @@ use crate::CommonError;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, TokenAccount};
 
-pub fn check_min_amount(amount: u64, min_amount: u64, action_name: &str) -> ProgramResult {
+pub fn check_min_amount(amount: u64, min_amount: u64, action_name: &str) -> Result<()> {
     if amount >= min_amount {
         Ok(())
     } else {
@@ -20,7 +20,7 @@ pub fn check_address(
     actual_address: &Pubkey,
     reference_address: &Pubkey,
     field_name: &str,
-) -> ProgramResult {
+) -> Result<()> {
     if actual_address == reference_address {
         Ok(())
     } else {
@@ -30,7 +30,7 @@ pub fn check_address(
             reference_address,
             actual_address
         );
-        Err(ProgramError::InvalidArgument)
+        Err(ProgramError::InvalidArgument.into())
     }
 }
 
@@ -38,7 +38,7 @@ pub fn check_owner_program<'info, A: ToAccountInfo<'info>>(
     account: &A,
     owner: &Pubkey,
     field_name: &str,
-) -> ProgramResult {
+) -> Result<()> {
     let actual_owner = account.to_account_info().owner;
     if actual_owner == owner {
         Ok(())
@@ -49,7 +49,7 @@ pub fn check_owner_program<'info, A: ToAccountInfo<'info>>(
             owner,
             actual_owner
         );
-        Err(ProgramError::InvalidArgument)
+        Err(ProgramError::InvalidArgument.into())
     }
 }
 
@@ -57,7 +57,7 @@ pub fn check_mint_authority(
     mint: &Mint,
     mint_authority: Pubkey,
     field_name: &str,
-) -> ProgramResult {
+) -> Result<()> {
     if mint.mint_authority.contains(&mint_authority) {
         Ok(())
     } else {
@@ -67,29 +67,29 @@ pub fn check_mint_authority(
             mint.mint_authority.unwrap_or_default(),
             mint_authority
         );
-        Err(ProgramError::InvalidAccountData)
+        Err(ProgramError::InvalidAccountData.into())
     }
 }
 
-pub fn check_freeze_authority(mint: &Mint, field_name: &str) -> ProgramResult {
+pub fn check_freeze_authority(mint: &Mint, field_name: &str) -> Result<()> {
     if mint.freeze_authority.is_none() {
         Ok(())
     } else {
         msg!("Mint {} must have freeze authority not set", field_name);
-        Err(ProgramError::InvalidAccountData)
+        Err(ProgramError::InvalidAccountData.into())
     }
 }
 
-pub fn check_mint_empty(mint: &Mint, field_name: &str) -> ProgramResult {
+pub fn check_mint_empty(mint: &Mint, field_name: &str) -> Result<()> {
     if mint.supply == 0 {
         Ok(())
     } else {
         msg!("Non empty mint {} supply: {}", field_name, mint.supply);
-        Err(ProgramError::InvalidArgument)
+        Err(ProgramError::InvalidArgument.into())
     }
 }
 
-pub fn check_token_mint(token: &TokenAccount, mint: Pubkey, field_name: &str) -> ProgramResult {
+pub fn check_token_mint(token: &TokenAccount, mint: Pubkey, field_name: &str) -> Result<()> {
     if token.mint == mint {
         Ok(())
     } else {
@@ -99,11 +99,11 @@ pub fn check_token_mint(token: &TokenAccount, mint: Pubkey, field_name: &str) ->
             token.mint,
             mint
         );
-        Err(ProgramError::InvalidAccountData)
+        Err(ProgramError::InvalidAccountData.into())
     }
 }
 
-pub fn check_token_owner(token: &TokenAccount, owner: &Pubkey, field_name: &str) -> ProgramResult {
+pub fn check_token_owner(token: &TokenAccount, owner: &Pubkey, field_name: &str) -> Result<()> {
     if token.owner == *owner {
         Ok(())
     } else {
@@ -113,6 +113,6 @@ pub fn check_token_owner(token: &TokenAccount, owner: &Pubkey, field_name: &str)
             token.owner,
             owner
         );
-        Err(ProgramError::InvalidAccountData)
+        Err(ProgramError::InvalidAccountData.into())
     }
 }

@@ -23,7 +23,7 @@ impl List {
         account: Pubkey,
         data: &mut [u8],
         list_name: &str,
-    ) -> Result<Self, ProgramError> {
+    ) -> Result<Self> {
         let result = Self {
             account,
             item_size,
@@ -48,18 +48,18 @@ impl List {
         discriminator: &[u8; 8],
         data: &mut [u8],
         list_name: &str,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         assert_eq!(self.count, 0);
         if data.len() < 8 {
             msg!(
                 "{} account must have at least 8 bytes of storage",
                 list_name
             );
-            return Err(ProgramError::AccountDataTooSmall);
+            return Err(ProgramError::AccountDataTooSmall.into());
         }
         if data[0..8] != [0; 8] {
             msg!("{} account is already initialized", list_name);
-            return Err(ProgramError::AccountAlreadyInitialized);
+            return Err(ProgramError::AccountAlreadyInitialized.into());
         }
 
         data[0..8].copy_from_slice(discriminator);
@@ -112,13 +112,13 @@ impl List {
         self.new_account != Pubkey::default()
     }
 
-    pub fn capacity(&self, account_len: usize) -> Result<u32, ProgramError> {
+    pub fn capacity(&self, account_len: usize) -> Result<u32> {
         Ok(u32::try_from(
             account_len
                 .checked_sub(8)
                 .ok_or(ProgramError::AccountDataTooSmall)?,
         )
-        .map_err(|_| ProgramError::from(CommonError::CalculationFailure))?
+        .map_err(|_| CommonError::CalculationFailure)?
         .checked_div(self.item_size())
         .unwrap_or(std::u32::MAX)) // for zst element (why you are using it in list?)
     }
@@ -128,7 +128,7 @@ impl List {
         data: &[u8],
         index: u32,
         list_name: &str,
-    ) -> Result<I, ProgramError> {
+    ) -> Result<I> {
         if index >= self.len() {
             msg!(
                 "list {} index out of bounds ({}/{})",
@@ -136,11 +136,11 @@ impl List {
                 index,
                 self.len()
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
         let start = 8 + (index * self.item_size()) as usize;
         I::deserialize(&mut &data[start..(start + self.item_size() as usize)])
-            .map_err(|err| ProgramError::BorshIoError(err.to_string()))
+            .map_err(|err| ProgramError::BorshIoError(err.to_string()).into())
     }
 
     pub fn set<I: AnchorSerialize>(
@@ -149,10 +149,10 @@ impl List {
         index: u32,
         item: I,
         list_name: &str,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         if self.new_account != Pubkey::default() {
             msg!("Can not modify list {} while changing list's account");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
         if index >= self.len() {
             msg!(
@@ -161,7 +161,7 @@ impl List {
                 index,
                 self.len()
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
 
         let start = 8 + (index * self.item_size()) as usize;
@@ -176,15 +176,15 @@ impl List {
         data: &mut [u8],
         item: I,
         list_name: &str,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         if self.new_account != Pubkey::default() {
             msg!("Can not modify list {} while changing list's account");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
         let capacity = self.capacity(data.len())?;
         if self.len() >= capacity {
             msg!("list {} with capacity {} is full", list_name, capacity);
-            return Err(ProgramError::AccountDataTooSmall);
+            return Err(ProgramError::AccountDataTooSmall.into());
         }
 
         let start = 8 + (self.len() * self.item_size()) as usize;
@@ -196,10 +196,10 @@ impl List {
         Ok(())
     }
 
-    pub fn remove(&mut self, data: &mut [u8], index: u32, list_name: &str) -> ProgramResult {
+    pub fn remove(&mut self, data: &mut [u8], index: u32, list_name: &str) -> Result<()> {
         if self.new_account != Pubkey::default() {
             msg!("Can not modify list {} while changing list's account");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
         if index >= self.len() {
             msg!(
@@ -208,7 +208,7 @@ impl List {
                 index,
                 self.len()
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
 
         self.count -= 1;
@@ -356,12 +356,12 @@ where
 mod tests {
     use std::collections::BTreeSet;
 
-    use anchor_lang::prelude::{ProgramError, ProgramResult, Pubkey};
+    use anchor_lang::prelude::*;
 
     use crate::list::List;
 
     #[test]
-    fn test_remove() -> ProgramResult {
+    fn test_remove() -> Result<()> {
         const COUNT: usize = 10;
         for remove_index in 0..COUNT {
             let mut list_data = [0; COUNT + 8];
@@ -393,7 +393,7 @@ mod tests {
                 .collect();
             let result_set = (0..list.len())
                 .map(|i| list.get::<u8>(&list_data, i as u32, "test_list"))
-                .collect::<Result<BTreeSet<u8>, ProgramError>>()?;
+                .collect::<Result<BTreeSet<u8>>>()?;
 
             assert_eq!(expected_set, result_set);
         }

@@ -7,11 +7,11 @@ use crate::{
 };
 
 impl<'info> OrderUnstake<'info> {
-    fn check_burn_msol_from(&self, msol_amount: u64) -> ProgramResult {
+    fn check_burn_msol_from(&self, msol_amount: u64) -> Result<()> {
         check_token_mint(&self.burn_msol_from, self.state.msol_mint, "burn_msol_from")?;
 
         if msol_amount == 0 {
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         // if delegated, check delegated amount
@@ -22,7 +22,7 @@ impl<'info> OrderUnstake<'info> {
                     msol_amount,
                     self.burn_msol_from.amount
                 );
-                return Err(ProgramError::InsufficientFunds);
+                return Err(ProgramError::InsufficientFunds.into());
             }
         } else if self
             .burn_msol_from
@@ -37,19 +37,19 @@ impl<'info> OrderUnstake<'info> {
                     self.burn_msol_from.delegated_amount,
                     msol_amount
                 );
-                return Err(ProgramError::InsufficientFunds);
+                return Err(ProgramError::InsufficientFunds.into());
             }
         } else {
             msg!(
                 "Token must be delegated to {}",
                 self.burn_msol_authority.key
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
         Ok(())
     }
 
-    fn check_new_ticket_account(&self) -> ProgramResult {
+    fn check_new_ticket_account(&self) -> Result<()> {
         // ticket account program-owner must be marinade (TODO: I think it was checked by anchor already)
         check_owner_program(
             &self.new_ticket_account,
@@ -63,7 +63,7 @@ impl<'info> OrderUnstake<'info> {
     }
 
     // fn order_unstake() // create delayed-unstake Ticket-account
-    pub fn process(&mut self, msol_amount: u64) -> ProgramResult {
+    pub fn process(&mut self, msol_amount: u64) -> Result<()> {
         // fn order_unstake()
         check_address(self.token_program.key, &spl_token::ID, "token_program")?;
         self.check_new_ticket_account()?;
@@ -100,10 +100,10 @@ impl<'info> OrderUnstake<'info> {
         //burn mSOL (with_token_delegate_authority_seeds)
         burn(
             CpiContext::new(
-                self.token_program.clone(),
+                self.token_program.to_account_info(),
                 Burn {
                     mint: self.msol_mint.to_account_info(),
-                    to: self.burn_msol_from.to_account_info(),
+                    from: self.burn_msol_from.to_account_info(),
                     authority: self.burn_msol_authority.clone(),
                 },
             ),

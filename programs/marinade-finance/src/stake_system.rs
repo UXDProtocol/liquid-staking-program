@@ -85,7 +85,7 @@ impl StakeSystem {
         min_stake: u64,
         extra_stake_delta_runs: u32,
         additional_record_space: u32,
-    ) -> Result<Self, ProgramError> {
+    ) -> Result<Self> {
         let stake_list = List::new(
             StakeRecord::DISCRIMINATOR,
             StakeRecord::default().try_to_vec().unwrap().len() as u32 + additional_record_space,
@@ -114,7 +114,7 @@ impl StakeSystem {
         self.stake_list.len()
     }
 
-    pub fn stake_list_capacity(&self, stake_list_len: usize) -> Result<u32, ProgramError> {
+    pub fn stake_list_capacity(&self, stake_list_len: usize) -> Result<u32> {
         self.stake_list.capacity(stake_list_len)
     }
 
@@ -128,7 +128,7 @@ impl StakeSystem {
         stake_account: &Pubkey,
         delegated_lamports: u64,
         clock: &Clock,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         self.stake_list.push(
             stake_list_data,
             StakeRecord::new(stake_account, delegated_lamports, clock),
@@ -137,23 +137,23 @@ impl StakeSystem {
         Ok(())
     }
 
-    pub fn get(&self, stake_list_data: &[u8], index: u32) -> Result<StakeRecord, ProgramError> {
+    pub fn get(&self, stake_list_data: &[u8], index: u32) -> Result<StakeRecord> {
         self.stake_list.get(stake_list_data, index, "stake_list")
     }
 
-    pub fn set(&self, stake_list_data: &mut [u8], index: u32, stake: StakeRecord) -> ProgramResult {
+    pub fn set(&self, stake_list_data: &mut [u8], index: u32, stake: StakeRecord) -> Result<()> {
         self.stake_list
             .set(stake_list_data, index, stake, "stake_list")
     }
-    pub fn remove(&mut self, stake_list_data: &mut [u8], index: u32) -> ProgramResult {
+    pub fn remove(&mut self, stake_list_data: &mut [u8], index: u32) -> Result<()> {
         self.stake_list.remove(stake_list_data, index, "stake_list")
     }
 
-    pub fn check_stake_list<'info>(&self, stake_list: &AccountInfo<'info>) -> ProgramResult {
+    pub fn check_stake_list<'info>(&self, stake_list: &AccountInfo<'info>) -> Result<()> {
         check_address(stake_list.key, self.stake_list_address(), "stake_list")?;
         if &stake_list.data.borrow().as_ref()[0..8] != StakeRecord::DISCRIMINATOR {
             msg!("Wrong stake list account discriminator");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
         Ok(())
     }
@@ -162,11 +162,11 @@ impl StakeSystem {
 pub trait StakeSystemHelpers {
     fn stake_withdraw_authority(&self) -> Pubkey;
     fn with_stake_withdraw_authority_seeds<R, F: FnOnce(&[&[u8]]) -> R>(&self, f: F) -> R;
-    fn check_stake_withdraw_authority(&self, stake_withdraw_authority: &Pubkey) -> ProgramResult;
+    fn check_stake_withdraw_authority(&self, stake_withdraw_authority: &Pubkey) -> Result<()>;
 
     fn stake_deposit_authority(&self) -> Pubkey;
     fn with_stake_deposit_authority_seeds<R, F: FnOnce(&[&[u8]]) -> R>(&self, f: F) -> R;
-    fn check_stake_deposit_authority(&self, stake_deposit_authority: &Pubkey) -> ProgramResult;
+    fn check_stake_deposit_authority(&self, stake_deposit_authority: &Pubkey) -> Result<()>;
 }
 
 impl<T> StakeSystemHelpers for T
@@ -187,7 +187,7 @@ where
         ])
     }
 
-    fn check_stake_withdraw_authority(&self, stake_withdraw_authority: &Pubkey) -> ProgramResult {
+    fn check_stake_withdraw_authority(&self, stake_withdraw_authority: &Pubkey) -> Result<()> {
         check_address(
             stake_withdraw_authority,
             &self.stake_withdraw_authority(),
@@ -209,7 +209,7 @@ where
         ])
     }
 
-    fn check_stake_deposit_authority(&self, stake_deposit_authority: &Pubkey) -> ProgramResult {
+    fn check_stake_deposit_authority(&self, stake_deposit_authority: &Pubkey) -> Result<()> {
         check_address(
             stake_deposit_authority,
             &self.stake_deposit_authority(),

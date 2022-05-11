@@ -1,6 +1,6 @@
 //use std::convert::TryInto;
 
-use crate::{calc::proportional, checks::check_address, error::CommonError, list::List, ID};
+use crate::{calc::proportional, checks::check_address, list::List, ID};
 use anchor_lang::prelude::*;
 
 pub mod add;
@@ -58,7 +58,7 @@ impl ValidatorRecord {
         score: u32,
         state: &Pubkey,
         duplication_flag_address: &Pubkey,
-    ) -> Result<Self, ProgramError> {
+    ) -> Result<Self> {
         let (actual_duplication_flag, duplication_flag_bump_seed) =
             Self::find_duplication_flag(state, &validator_account);
         if duplication_flag_address != &actual_duplication_flag {
@@ -67,7 +67,7 @@ impl ValidatorRecord {
                 duplication_flag_address,
                 actual_duplication_flag
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
         Ok(Self {
             validator_account,
@@ -111,7 +111,7 @@ impl ValidatorSystem {
         validator_list_data: &mut [u8],
         manager_authority: Pubkey,
         additional_record_space: u32,
-    ) -> Result<Self, ProgramError> {
+    ) -> Result<Self> {
         Ok(Self {
             validator_list: List::new(
                 ValidatorRecord::DISCRIMINATOR,
@@ -136,7 +136,7 @@ impl ValidatorSystem {
         self.validator_list.len()
     }
 
-    pub fn validator_list_capacity(&self, validator_list_len: usize) -> Result<u32, ProgramError> {
+    pub fn validator_list_capacity(&self, validator_list_len: usize) -> Result<u32> {
         self.validator_list.capacity(validator_list_len)
     }
 
@@ -159,7 +159,7 @@ impl ValidatorSystem {
         score: u32,
         state: &Pubkey,
         duplication_flag_address: &Pubkey,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         self.validator_list.push(
             validator_list_data,
             ValidatorRecord::new(validator_account, score, state, duplication_flag_address)?,
@@ -177,7 +177,7 @@ impl ValidatorSystem {
         balance: u64,
         state: &Pubkey,
         duplication_flag_address: &Pubkey,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let mut validator =
             ValidatorRecord::new(validator_account, score, state, duplication_flag_address)?;
         validator.active_balance = balance;
@@ -192,14 +192,14 @@ impl ValidatorSystem {
         validator_list_data: &mut [u8],
         index: u32,
         record: ValidatorRecord,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         if record.active_balance > 0 {
             msg!(
                 "Can not remove validator {} with balance {}",
                 record.validator_account,
                 record.active_balance
             );
-            return Err(ProgramError::InvalidInstructionData);
+            return Err(ProgramError::InvalidInstructionData.into());
         }
         self.total_validator_score = self.total_validator_score.saturating_sub(record.score);
 
@@ -213,7 +213,7 @@ impl ValidatorSystem {
         &self,
         validator_list_data: &[u8],
         index: u32,
-    ) -> Result<ValidatorRecord, ProgramError> {
+    ) -> Result<ValidatorRecord> {
         self.validator_list
             .get(validator_list_data, index, "validator_list")
     }
@@ -224,7 +224,7 @@ impl ValidatorSystem {
         validator_list_data: &mut [u8],
         index: u32,
         validator_record: ValidatorRecord,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         self.validator_list.set(
             validator_list_data,
             index,
@@ -237,7 +237,7 @@ impl ValidatorSystem {
         &self,
         validator: &ValidatorRecord,
         total_stake_target: u64,
-    ) -> Result<u64, CommonError> {
+    ) -> Result<u64> {
         if self.total_validator_score == 0 {
             return Ok(0);
         }
@@ -251,7 +251,7 @@ impl ValidatorSystem {
     pub fn check_validator_list<'info>(
         &self,
         validator_list: &AccountInfo<'info>,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         check_address(
             validator_list.key,
             self.validator_list_address(),
@@ -259,12 +259,12 @@ impl ValidatorSystem {
         )?;
         if &validator_list.data.borrow().as_ref()[0..8] != ValidatorRecord::DISCRIMINATOR {
             msg!("Wrong validator list account discriminator");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
         Ok(())
     }
 
-    pub fn check_validator_manager_authority(&self, manager_authority: &Pubkey) -> ProgramResult {
+    pub fn check_validator_manager_authority(&self, manager_authority: &Pubkey) -> Result<()> {
         check_address(
             manager_authority,
             &self.manager_authority,

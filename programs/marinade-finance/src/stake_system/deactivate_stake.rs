@@ -15,17 +15,17 @@ impl<'info> DeactivateStake<'info> {
     //
     // fn deactivate_stake()
     //
-    pub fn process(&mut self, stake_index: u32, validator_index: u32) -> ProgramResult {
+    pub fn process(&mut self, stake_index: u32, validator_index: u32) -> Result<()> {
         self.state.check_reserve_address(self.reserve_pda.key)?;
         self.state
             .validator_system
             .check_validator_list(&self.validator_list)?;
         self.state.stake_system.check_stake_list(&self.stake_list)?;
         self.state
-            .check_stake_deposit_authority(self.stake_deposit_authority.key)?;
+            .check_stake_deposit_authority(&self.stake_deposit_authority.key())?;
         check_owner_program(&self.stake_account, &stake::program::ID, "stake_account")?;
         self.state
-            .check_stake_deposit_authority(self.stake_deposit_authority.key)?;
+            .check_stake_deposit_authority(&self.stake_deposit_authority.key())?;
         check_address(
             self.system_program.key,
             &system_program::ID,
@@ -44,7 +44,7 @@ impl<'info> DeactivateStake<'info> {
                 stake_index,
                 &stake.stake_account
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         let mut validator = self
@@ -63,7 +63,7 @@ impl<'info> DeactivateStake<'info> {
                 "Stake delta is available only last {} slots of epoch",
                 self.state.stake_system.slots_for_stake_delta
             );
-            return Err(ProgramError::Custom(332));
+            return Err(ProgramError::Custom(332).into());
         }
 
         // compute total required stake delta (i128, must be negative)
@@ -71,7 +71,7 @@ impl<'info> DeactivateStake<'info> {
         msg!("total_stake_delta_i128 {}", total_stake_delta_i128);
         if total_stake_delta_i128 >= 0 {
             msg!("Must stake {} instead of unstaking", total_stake_delta_i128);
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
         // convert to u64
         let total_unstake_delta =
@@ -91,7 +91,7 @@ impl<'info> DeactivateStake<'info> {
                         "Invalid stake validator index. Need to point into validator {}",
                         validator.validator_account
                     );
-                    return Err(ProgramError::InvalidInstructionData);
+                    return Err(ProgramError::InvalidInstructionData.into());
                 }
                 delegation.stake
             } else {
@@ -99,7 +99,7 @@ impl<'info> DeactivateStake<'info> {
                     "Stake {} must be delegated!",
                     self.stake_account.to_account_info().key
                 );
-                return Err(ProgramError::InvalidAccountData);
+                return Err(ProgramError::InvalidAccountData.into());
             };
 
             if stake.last_update_delegated_lamports != currently_staked {
@@ -150,13 +150,13 @@ impl<'info> DeactivateStake<'info> {
                 invoke_signed(
                     &stake::instruction::deactivate_stake(
                         self.stake_account.to_account_info().key,
-                        self.stake_deposit_authority.key,
+                        &self.stake_deposit_authority.key(),
                     ),
                     &[
                         self.stake_program.clone(),
                         self.stake_account.to_account_info(),
                         self.clock.to_account_info(),
-                        self.stake_deposit_authority.clone(),
+                        self.stake_deposit_authority.to_account_info(),
                     ],
                     &[seeds],
                 )
@@ -248,7 +248,7 @@ impl<'info> DeactivateStake<'info> {
                         &stake_program::ID,
                     ),
                     &[
-                        self.system_program.clone(),
+                        self.system_program.to_account_info(),
                         self.split_stake_rent_payer.clone(),
                         self.split_stake_account.clone(),
                     ],
@@ -267,7 +267,7 @@ impl<'info> DeactivateStake<'info> {
                         stake_accout_len,
                         self.split_stake_account.data_len()
                     );
-                    return Err(ProgramError::InvalidAccountData);
+                    return Err(ProgramError::InvalidAccountData.into());
                 }
                 if !self.rent.is_exempt(
                     self.split_stake_account.lamports(),
@@ -277,7 +277,7 @@ impl<'info> DeactivateStake<'info> {
                         "Split stake account {} must be rent-exempt",
                         self.split_stake_account.key
                     );
-                    return Err(ProgramError::InsufficientFunds);
+                    return Err(ProgramError::InsufficientFunds.into());
                 }
                 match bincode::deserialize(&self.split_stake_account.data.as_ref().borrow())
                     .map_err(|err| ProgramError::BorshIoError(err.to_string()))?
@@ -288,7 +288,7 @@ impl<'info> DeactivateStake<'info> {
                             "Split stake {} must be uninitialized",
                             self.split_stake_account.key
                         );
-                        return Err(ProgramError::InvalidAccountData);
+                        return Err(ProgramError::InvalidAccountData.into());
                     }
                 }
             }
@@ -296,7 +296,7 @@ impl<'info> DeactivateStake<'info> {
             self.state.with_stake_deposit_authority_seeds(|seeds| {
                 let split_instruction = stake::instruction::split(
                     self.stake_account.to_account_info().key,
-                    self.stake_deposit_authority.key,
+                    &self.stake_deposit_authority.key(),
                     split_amount,
                     self.split_stake_account.key,
                 )
@@ -309,7 +309,7 @@ impl<'info> DeactivateStake<'info> {
                         self.stake_program.clone(),
                         self.stake_account.to_account_info(),
                         self.split_stake_account.to_account_info(),
-                        self.stake_deposit_authority.clone(),
+                        self.stake_deposit_authority.to_account_info(),
                     ],
                     &[seeds],
                 )?;
@@ -317,13 +317,13 @@ impl<'info> DeactivateStake<'info> {
                 invoke_signed(
                     &stake::instruction::deactivate_stake(
                         self.split_stake_account.to_account_info().key,
-                        self.stake_deposit_authority.key,
+                        &self.stake_deposit_authority.key(),
                     ),
                     &[
                         self.stake_program.clone(),
                         self.split_stake_account.to_account_info(),
                         self.clock.to_account_info(),
-                        self.stake_deposit_authority.clone(),
+                        self.stake_deposit_authority.to_account_info(),
                     ],
                     &[seeds],
                 )

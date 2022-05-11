@@ -21,14 +21,14 @@ use std::convert::TryFrom;
 use std::ops::Deref;
 
 impl<'info> StakeReserve<'info> {
-    fn check_stake_history(&self) -> ProgramResult {
+    fn check_stake_history(&self) -> Result<()> {
         if !stake_history::check_id(self.stake_history.key) {
             msg!(
                 "Stake history sysvar must be {}. Got {}",
                 stake_history::ID,
                 self.stake_history.key
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
         Ok(())
     }
@@ -38,7 +38,7 @@ impl<'info> StakeReserve<'info> {
     /// Receives self.stake_account where to stake, normally an empty account (new keypair)
     /// stakes from available delta-stake in data.validator_index
     /// pub fn stake_reserve()
-    pub fn process(&mut self, validator_index: u32) -> ProgramResult {
+    pub fn process(&mut self, validator_index: u32) -> Result<()> {
         sol_log_compute_units();
         msg!("Stake reserve");
         self.state
@@ -54,7 +54,7 @@ impl<'info> StakeReserve<'info> {
             StakeState::Uninitialized => (),
             _ => {
                 msg!("Stake {} must be uninitialized", self.stake_account.key());
-                return Err(ProgramError::InvalidAccountData);
+                return Err(ProgramError::InvalidAccountData.into());
             }
         }
         if self.stake_account.to_account_info().lamports()
@@ -66,7 +66,7 @@ impl<'info> StakeReserve<'info> {
                 StakeState::get_rent_exempt_reserve(&self.rent),
                 self.stake_account.to_account_info().lamports()
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         check_address(self.stake_config.key, &stake::config::ID, "stake_config")?;
@@ -105,7 +105,7 @@ impl<'info> StakeReserve<'info> {
             .get(&self.validator_list.data.as_ref().borrow(), validator_index)?;
 
         check_address(
-            &self.validator_vote.key,
+            self.validator_vote.key,
             &validator.validator_account,
             "validator_vote",
         )?;
@@ -136,7 +136,7 @@ impl<'info> StakeReserve<'info> {
                 "Stake delta is available only last {} slots of epoch",
                 self.state.stake_system.slots_for_stake_delta
             );
-            return Err(ProgramError::Custom(332));
+            return Err(ProgramError::Custom(332).into());
         }
 
         let validator_stake_target = self
@@ -179,7 +179,7 @@ impl<'info> StakeReserve<'info> {
                     stake_target,
                 ),
                 &[
-                    self.system_program.clone(),
+                    self.system_program.to_account_info(),
                     self.reserve_pda.clone(),
                     self.stake_account.to_account_info(),
                 ],

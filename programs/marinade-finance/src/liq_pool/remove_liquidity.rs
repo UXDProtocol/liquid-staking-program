@@ -9,7 +9,7 @@ use anchor_lang::solana_program::{program::invoke_signed, system_instruction, sy
 use anchor_spl::token::{burn, transfer, Burn, Transfer};
 
 impl<'info> RemoveLiquidity<'info> {
-    fn check_burn_from(&self, tokens: u64) -> ProgramResult {
+    fn check_burn_from(&self, tokens: u64) -> Result<()> {
         check_token_mint(&self.burn_from, self.state.liq_pool.lp_mint, "burn_from")?;
         // if delegated, check delegated amount
         if *self.burn_from_authority.key == self.burn_from.owner {
@@ -19,7 +19,7 @@ impl<'info> RemoveLiquidity<'info> {
                     tokens,
                     self.burn_from.amount
                 );
-                return Err(ProgramError::InsufficientFunds);
+                return Err(ProgramError::InsufficientFunds.into());
             }
         } else if self
             .burn_from
@@ -34,19 +34,19 @@ impl<'info> RemoveLiquidity<'info> {
                     self.burn_from.delegated_amount,
                     tokens
                 );
-                return Err(ProgramError::InsufficientFunds);
+                return Err(ProgramError::InsufficientFunds.into());
             }
         } else {
             msg!(
                 "Token must be delegated to {}",
                 self.burn_from_authority.key
             );
-            return Err(ProgramError::InvalidArgument);
+            return Err(ProgramError::InvalidArgument.into());
         }
         Ok(())
     }
 
-    fn check_transfer_sol_to(&self) -> ProgramResult {
+    fn check_transfer_sol_to(&self) -> Result<()> {
         check_owner_program(
             &self.transfer_sol_to,
             &system_program::ID,
@@ -55,7 +55,7 @@ impl<'info> RemoveLiquidity<'info> {
         Ok(())
     }
 
-    fn check_transfer_msol_to(&self) -> ProgramResult {
+    fn check_transfer_msol_to(&self) -> Result<()> {
         check_token_mint(
             &self.transfer_msol_to,
             self.state.msol_mint,
@@ -64,7 +64,7 @@ impl<'info> RemoveLiquidity<'info> {
         Ok(())
     }
 
-    pub fn process(&mut self, tokens: u64) -> ProgramResult {
+    pub fn process(&mut self, tokens: u64) -> Result<()> {
         msg!("rem-liq pre check");
         self.state
             .liq_pool
@@ -142,7 +142,7 @@ impl<'info> RemoveLiquidity<'info> {
                     &[
                         self.liq_pool_sol_leg_pda.clone(),
                         self.transfer_sol_to.clone(),
-                        self.system_program.clone(),
+                        self.system_program.to_account_info(),
                     ],
                     &[sol_seeds],
                 )
@@ -155,7 +155,7 @@ impl<'info> RemoveLiquidity<'info> {
                 .with_liq_pool_msol_leg_authority_seeds(|msol_seeds| {
                     transfer(
                         CpiContext::new_with_signer(
-                            self.token_program.clone(),
+                            self.token_program.to_account_info(),
                             Transfer {
                                 from: self.liq_pool_msol_leg.to_account_info(),
                                 to: self.transfer_msol_to.to_account_info(),
@@ -170,10 +170,10 @@ impl<'info> RemoveLiquidity<'info> {
 
         burn(
             CpiContext::new(
-                self.token_program.clone(),
+                self.token_program.to_account_info(),
                 Burn {
                     mint: self.lp_mint.to_account_info(),
-                    to: self.burn_from.to_account_info(),
+                    from: self.burn_from.to_account_info(),
                     authority: self.burn_from_authority.clone(),
                 },
             ),

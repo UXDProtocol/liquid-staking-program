@@ -19,7 +19,7 @@ use crate::{
 impl<'info> DepositStakeAccount<'info> {
     pub const WAIT_EPOCHS: u64 = 2;
     // fn deposit_stake_account()
-    pub fn process(&mut self, validator_index: u32) -> ProgramResult {
+    pub fn process(&mut self, validator_index: u32) -> Result<()> {
         self.state
             .validator_system
             .check_validator_list(&self.validator_list)?;
@@ -50,7 +50,7 @@ impl<'info> DepositStakeAccount<'info> {
                 "Warning: mSOL minted {} lamports outside of marinade",
                 self.msol_mint.supply - self.state.msol_supply
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         let delegation = self.stake_account.delegation().ok_or_else(|| {
@@ -66,7 +66,7 @@ impl<'info> DepositStakeAccount<'info> {
                 "Deposited stake {} must not be cooling down",
                 self.stake_account.to_account_info().key
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         if self.clock.epoch
@@ -83,7 +83,7 @@ impl<'info> DepositStakeAccount<'info> {
                     .checked_add(Self::WAIT_EPOCHS)
                     .unwrap()
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         if delegation.stake < self.state.stake_system.min_stake {
@@ -93,7 +93,7 @@ impl<'info> DepositStakeAccount<'info> {
                 delegation.stake,
                 self.state.stake_system.min_stake
             );
-            return Err(ProgramError::InsufficientFunds);
+            return Err(ProgramError::InsufficientFunds.into());
         }
 
         if self.stake_account.to_account_info().lamports()
@@ -104,7 +104,7 @@ impl<'info> DepositStakeAccount<'info> {
                 self.stake_account.to_account_info().lamports()
                     - (delegation.stake + self.stake_account.meta().unwrap().rent_exempt_reserve)
             );
-            return Err(ProgramError::Custom(6212));
+            return Err(ProgramError::Custom(6212).into());
         }
 
         self.state.check_staking_cap(delegation.stake)?;
@@ -130,7 +130,7 @@ impl<'info> DepositStakeAccount<'info> {
                     "Rent payer must have at least {} lamports",
                     self.rent.minimum_balance(0)
                 );
-                return Err(ProgramError::InsufficientFunds);
+                return Err(ProgramError::InsufficientFunds.into());
             }
             // Add extra validator with 0 score
             let state_address = *self.state.to_account_info().key;
@@ -160,7 +160,7 @@ impl<'info> DepositStakeAccount<'info> {
                             &ID,
                         ),
                         &[
-                            self.system_program.clone(),
+                            self.system_program.to_account_info(),
                             self.rent_payer.clone(),
                             self.duplication_flag.clone(),
                         ],
@@ -202,7 +202,7 @@ impl<'info> DepositStakeAccount<'info> {
                     self.stake_account.to_account_info().key,
                     new_staker
                 );
-                return Err(ProgramError::InvalidAccountData);
+                return Err(ProgramError::InvalidAccountData.into());
             }
 
             // Clean old lockup
@@ -251,7 +251,7 @@ impl<'info> DepositStakeAccount<'info> {
                     self.stake_account.to_account_info().key,
                     new_withdrawer
                 );
-                return Err(ProgramError::InvalidAccountData);
+                return Err(ProgramError::InvalidAccountData.into());
             }
 
             invoke(
@@ -283,7 +283,7 @@ impl<'info> DepositStakeAccount<'info> {
         self.state.with_msol_mint_authority_seeds(|mint_seeds| {
             mint_to(
                 CpiContext::new_with_signer(
-                    self.token_program.clone(),
+                    self.token_program.to_account_info(),
                     MintTo {
                         mint: self.msol_mint.to_account_info(),
                         to: self.mint_to.to_account_info(),

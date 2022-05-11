@@ -18,7 +18,7 @@ const EXTRA_WAIT_SECONDS: i64 = 30 * 60;
 /// Checks that transfer request amount is less than total requested for unstake
 impl<'info> Claim<'info> {
     //
-    fn check_ticket_account(&self) -> ProgramResult {
+    fn check_ticket_account(&self) -> Result<()> {
         // ticket account program-owner must be marinade  (TODO: I think it was checked by anchor already)
         check_owner_program(
             &self.ticket_account,
@@ -30,7 +30,7 @@ impl<'info> Claim<'info> {
                 "Ticket has wrong marinade instance {}",
                 self.ticket_account.state_address
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         // should be initialized - checked by anchor
@@ -39,7 +39,7 @@ impl<'info> Claim<'info> {
         // not used
         if self.ticket_account.lamports_amount == 0 {
             msg!("Used ticket");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         };
 
         //check if ticket is due
@@ -67,7 +67,7 @@ impl<'info> Claim<'info> {
         Ok(())
     }
 
-    pub fn process(&mut self) -> ProgramResult {
+    pub fn process(&mut self) -> Result<()> {
         // fn claim()
         check_address(
             self.system_program.to_account_info().key,
@@ -89,7 +89,7 @@ impl<'info> Claim<'info> {
                 lamports,
                 self.state.circulating_ticket_balance
             );
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidAccountData.into());
         }
 
         // Real balance not virtual field
@@ -119,7 +119,7 @@ impl<'info> Claim<'info> {
                     lamports,
                 ),
                 &[
-                    self.system_program.clone(),
+                    self.system_program.to_account_info(),
                     self.reserve_pda.clone(),
                     self.transfer_sol_to.clone(),
                 ],
