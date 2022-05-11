@@ -1,3 +1,5 @@
+Forked marinade main program with anchor upgraded. It's a way to interact with mariande for now until they release a anchor-independent sdk / or anchor upgrade on their side
+
 # marinade-anchor
 Marinade-finance liquid staking program for the Solana blockchain
 
