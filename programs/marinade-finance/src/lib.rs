@@ -313,7 +313,7 @@ pub struct Initialize<'info> {
     #[account(signer)]
     pub creator_authority: AccountInfo<'info>,
     #[account(zero, rent_exempt = enforce)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
 
     /// CHECK : Marinade CPI
     pub reserve_pda: AccountInfo<'info>,
@@ -389,7 +389,7 @@ pub struct ChangeAuthorityData {
 #[derive(Accounts)]
 pub struct AddLiquidity<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
 
     #[account(mut)]
     pub lp_mint: Account<'info, Mint>,
@@ -426,7 +426,7 @@ pub struct AddLiquidity<'info> {
 #[derive(Accounts)]
 pub struct RemoveLiquidity<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
 
     #[account(mut)]
     pub lp_mint: Account<'info, Mint>,
@@ -462,7 +462,7 @@ pub struct RemoveLiquidity<'info> {
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
 
     #[account(mut)]
     pub msol_mint: Account<'info, Mint>,
@@ -499,7 +499,7 @@ pub struct Deposit<'info> {
 #[derive(Accounts)]
 pub struct DepositStakeAccount<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
 
     /// CHECK : Marinade CPI
     #[account(mut)]
@@ -541,7 +541,7 @@ pub struct DepositStakeAccount<'info> {
 #[derive(Accounts)]
 pub struct LiquidUnstake<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
 
     #[account(mut)]
     pub msol_mint: Account<'info, Mint>,
@@ -641,7 +641,7 @@ pub struct ConfigValidatorSystem<'info> {
 #[derive(Accounts)]
 pub struct OrderUnstake<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
     #[account(mut)]
     pub msol_mint: Account<'info, Mint>,
 
@@ -684,7 +684,7 @@ pub struct Claim<'info> {
 #[derive(Accounts)]
 pub struct StakeReserve<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
     /// CHECK : Marinade CPI
     #[account(mut)]
     pub validator_list: AccountInfo<'info>,
@@ -717,7 +717,7 @@ pub struct StakeReserve<'info> {
 #[derive(Accounts)]
 pub struct UpdateCommon<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
     /// CHECK : Marinade CPI
     #[account(mut)]
     pub stake_list: AccountInfo<'info>,
@@ -826,7 +826,7 @@ pub struct ConfigMarinade<'info> {
 #[derive(Accounts)]
 pub struct DeactivateStake<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
     /// CHECK : Marinade CPI
     // Readonly. For stake delta calculation
     pub reserve_pda: AccountInfo<'info>,
@@ -838,6 +838,7 @@ pub struct DeactivateStake<'info> {
     pub stake_list: AccountInfo<'info>,
     #[account(mut)]
     pub stake_account: Account<'info, StakeWrapper>,
+    /// CHECK : Marinade CPI
     pub stake_deposit_authority: AccountInfo<'info>,
     /// CHECK : Marinade CPI
     #[account(mut, signer)]
@@ -884,7 +885,7 @@ pub struct EmergencyUnstake<'info> {
 #[derive(Accounts)]
 pub struct MergeStakes<'info> {
     #[account(mut)]
-    pub state: Account<'info, State>,
+    pub state: Box<Account<'info, State>>,
     /// CHECK : Marinade CPI
     #[account(mut)]
     pub stake_list: AccountInfo<'info>,
